@@ -1,0 +1,229 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dayflow HRMS</title>
+<style>
+body {margin:0;font-family:Arial;background:#f4f6f8;}
+header {background:#1e88e5;color:#fff;padding:15px;text-align:center;}
+.container {padding:20px;}
+.card {background:#fff;padding:20px;margin:10px auto;border-radius:6px;max-width:900px;}
+.hidden {display:none;}
+input, select, button {padding:8px;margin:5px;}
+button {background:#1e88e5;color:#fff;border:none;cursor:pointer;}
+button:hover {background:#1565c0;}
+nav button {margin-right:5px;}
+.error {color:red;}
+table {width:100%;border-collapse:collapse;margin-top:10px;}
+th, td {border:1px solid #ccc;padding:8px;text-align:center;}
+th {background:#1e88e5;color:white;}
+.status-pending{color:orange;}
+.status-approved{color:green;}
+.status-rejected{color:red;}
+</style>
+</head>
+<body>
+
+<header>
+<h1>Dayflow – Human Resource Management System</h1>
+<p>Every workday, perfectly aligned.</p>
+</header>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div class="card" id="loginBox">
+<h3>Sign In</h3>
+<input id="loginEmail" placeholder="Email">
+<input id="loginPass" type="password" placeholder="Password">
+<button onclick="login()">Sign In</button>
+<p onclick="showRegister()" style="cursor:pointer;color:#1e88e5;">Create Account</p>
+<p id="loginMsg" class="error"></p>
+</div>
+
+<!-- REGISTER -->
+<div class="card hidden" id="registerBox">
+<h3>Sign Up</h3>
+<input id="regName" placeholder="Full Name">
+<input id="regEmail" placeholder="Email">
+<input id="regPhone" placeholder="Mobile Number">
+<input id="regPass" type="password" placeholder="Password">
+<input id="regConfirmPass" type="password" placeholder="Confirm Password">
+<select id="regCategory">
+<option value="">Select Category</option>
+<option>Intern</option>
+<option>Junior Developer</option>
+<option>Senior Developer</option>
+<option>Manager</option>
+<option>HR</option>
+</select>
+<button onclick="register()">Register</button>
+<p onclick="showLogin()" style="cursor:pointer;color:#1e88e5;">Back to Login</p>
+<p id="regMsg" class="error"></p>
+</div>
+
+</div>
+
+<div class="container hidden" id="dashboard">
+
+<nav>
+<button onclick="show('profile')">My Profile</button>
+<button onclick="show('attendance')">Attendance</button>
+<button onclick="show('leave')">Leave</button>
+<button onclick="show('meetings')">Meetings</button>
+<button id="adminBtn" onclick="show('admin')" class="hidden">Admin Panel</button>
+<button onclick="logout()" style="background:red;">Logout</button>
+</nav>
+
+<!-- PROFILE -->
+<section id="profile" class="card hidden">
+<h3>My Profile</h3>
+<table>
+<tr><th>Name</th><td id="pname"></td></tr>
+<tr><th>Email</th><td id="pemail"></td></tr>
+<tr><th>Mobile</th><td id="pphone"></td></tr>
+<tr><th>Category</th><td id="pcategory"></td></tr>
+<tr><th>Salary</th><td>₹<span id="psalary"></span></td></tr>
+<tr><th>Leave Quota (Paid/Sick)</th><td id="pleavequota"></td></tr>
+</table>
+</section>
+
+<!-- ATTENDANCE -->
+<section id="attendance" class="card hidden">
+<h3>Attendance</h3>
+<button onclick="checkIn()">Check In</button>
+<button onclick="checkOut()">Check Out</button>
+<ul id="attList"></ul>
+</section>
+
+<!-- LEAVE -->
+<section id="leave" class="card hidden">
+<h3>Apply Leave</h3>
+<select id="leaveType">
+<option>Paid Leave</option>
+<option>Sick Leave</option>
+<option>Unpaid Leave</option>
+</select>
+<button onclick="applyLeave()">Apply</button>
+<ul id="leaveList"></ul>
+</section>
+
+<!-- MEETINGS -->
+<section id="meetings" class="card hidden">
+<h3>Group Meetings</h3>
+<ul id="meetingList"></ul>
+</section>
+
+<!-- ADMIN PANEL -->
+<section id="admin" class="card hidden">
+<h3>Admin / HR Panel</h3>
+
+<h4>All Employee Profiles</h4>
+<table>
+<thead>
+<tr><th>Name</th><th>Email</th><th>Mobile</th><th>Category</th><th>Salary</th></tr>
+</thead>
+<tbody id="empTable"></tbody>
+</table>
+
+<h4>Leave Requests</h4>
+<ul id="adminLeaveList"></ul>
+
+<h4>Create Group Meeting</h4>
+<input id="mTitle" placeholder="Meeting Title">
+<input type="date" id="mDate">
+<input type="time" id="mTime">
+<button onclick="createMeeting()">Create Meeting</button>
+
+</section>
+
+<script>
+const salaryMap={Intern:15000, "Junior Developer":30000, "Senior Developer":60000, Manager:100000, HR:90000};
+const leaveQuota={Intern:[5,5], "Junior Developer":[12,8], "Senior Developer":[15,10], Manager:[20,12], HR:[25,15]};
+
+let users=JSON.parse(localStorage.getItem("users"))||[{name:"HR Admin",email:"admin@dayflow.com",phone:"9999999999",pass:"admin123",category:"HR",salary:90000}];
+let leaves=JSON.parse(localStorage.getItem("leaves"))||[];
+let meetings=JSON.parse(localStorage.getItem("meetings"))||[];
+let attendance=[];
+let currentUser=null;
+
+/* AUTH */
+function showRegister(){ loginBox.classList.add("hidden"); registerBox.classList.remove("hidden"); }
+function showLogin(){ registerBox.classList.add("hidden"); loginBox.classList.remove("hidden"); }
+
+function register(){
+if(regPass.value!==regConfirmPass.value){ regMsg.innerText="Passwords do not match"; return; }
+if(regPhone.value.length!==10 || isNaN(regPhone.value)){ regMsg.innerText="Invalid mobile number"; return; }
+users.push({
+name:regName.value,email:regEmail.value,phone:regPhone.value,pass:regPass.value,
+category:regCategory.value,salary:salaryMap[regCategory.value]
+});
+localStorage.setItem("users",JSON.stringify(users));
+alert("Registered Successfully"); showLogin();
+}
+
+function login(){
+let u=users.find(x=>x.email===loginEmail.value && x.pass===loginPass.value);
+if(!u){ loginMsg.innerText="Invalid login"; return; }
+currentUser=u;
+document.querySelector(".container").classList.add("hidden"); dashboard.classList.remove("hidden");
+loadDashboard();
+}
+function logout(){ location.reload(); }
+
+/* DASHBOARD */
+function show(id){ document.querySelectorAll("section").forEach(s=>s.classList.add("hidden")); document.getElementById(id).classList.remove("hidden"); }
+
+function loadDashboard(){
+pname.innerText=currentUser.name;
+pemail.innerText=currentUser.email;
+pphone.innerText=currentUser.phone;
+pcategory.innerText=currentUser.category;
+psalary.innerText=currentUser.salary;
+let quota=leaveQuota[currentUser.category]; 
+pleavequota.innerText=quota?quota[0]+" Paid / "+quota[1]+" Sick":"N/A";
+if(currentUser.category==="HR") adminBtn.classList.remove("hidden");
+show("profile"); loadAdmin(); loadLeaves(); loadMeetings();
+}
+
+/* ATTENDANCE */
+function checkIn(){ attList.innerHTML+="<li>Checked In</li>"; }
+function checkOut(){ attList.innerHTML+="<li>Checked Out</li>"; }
+
+/* LEAVE */
+function applyLeave(){
+leaves.push({name:currentUser.name,type:leaveType.value,status:"Pending"});
+localStorage.setItem("leaves",JSON.stringify(leaves));
+loadLeaves(); loadAdmin();
+}
+
+function loadLeaves(){
+leaveList.innerHTML="";
+leaves.filter(l=>l.name===currentUser.name).forEach(l=>leaveList.innerHTML+=`<li>${l.type} - <span class="status-${l.status.toLowerCase()}">${l.status}</span></li>`);
+}
+
+/* ADMIN PANEL */
+function loadAdmin(){
+empTable.innerHTML=""; leavesHtml="";
+users.forEach(u=>{
+empTable.innerHTML+=`<tr><td>${u.name}</td><td>${u.email}</td><td>${u.phone}</td><td>${u.category}</td><td>₹${u.salary}</td></tr>`;
+});
+adminLeaveList.innerHTML="";
+leaves.forEach((l,i)=>{
+adminLeaveList.innerHTML+=`<li>${l.name} - ${l.type} 
+<button onclick="approve(${i})">Approve</button>
+<button onclick="reject(${i})" style="background:red;">Reject</button>
+</li>`;
+});
+}
+function approve(i){ leaves[i].status="Approved"; localStorage.setItem("leaves",JSON.stringify(leaves)); loadLeaves(); loadAdmin(); }
+function reject(i){ leaves[i].status="Rejected"; localStorage.setItem("leaves",JSON.stringify(leaves)); loadLeaves(); loadAdmin(); }
+
+/* MEETINGS */
+function createMeeting(){ meetings.push(`${mTitle.value} - ${mDate.value} ${mTime.value}`); localStorage.setItem("meetings",JSON.stringify(meetings)); loadMeetings(); }
+function loadMeetings(){ meetingList.innerHTML=""; meetings.forEach(m=>meetingList.innerHTML+=`<li>${m}</li>`); }
+</script>
+</body>
+</html>
